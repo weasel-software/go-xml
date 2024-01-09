@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/token"
 	"io"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,7 +35,7 @@ type errorList []error
 func (l errorList) Error() string {
 	var buf bytes.Buffer
 	for _, err := range l {
-		io.WriteString(&buf, err.Error()+"\n")
+		_, _ = io.WriteString(&buf, err.Error()+"\n")
 	}
 	return buf.String()
 }
@@ -47,7 +48,7 @@ func lookupTargetNS(data ...[]byte) []string {
 			continue
 		}
 		outer := xmltree.Element{
-			Children: []xmltree.Element{*tree},
+			Children: []*xmltree.Element{tree},
 		}
 		elts := outer.Search("http://www.w3.org/2001/XMLSchema", "schema")
 		for _, el := range elts {
@@ -82,7 +83,7 @@ type Code struct {
 // DocType retrieves the complexType for the provided target
 // namespace.
 func (c *Code) DocType(targetNS string) (*xsd.ComplexType, bool) {
-	key := xml.Name{targetNS, "_self"}
+	key := xml.Name{Space: targetNS, Local: "_self"}
 	doc, ok := c.types[key].(*xsd.ComplexType)
 	return doc, ok
 }
@@ -247,6 +248,9 @@ func (code *Code) GenAST() (*ast.File, error) {
 			},
 		}
 		file.Decls = append(file.Decls, typeDecl)
+		if info.constants != nil {
+			file.Decls = append(file.Decls, info.constants.Decl)
+		}
 		for _, f := range info.methods {
 			file.Decls = append(file.Decls, f)
 		}
@@ -263,10 +267,12 @@ type spec struct {
 	name, doc   string
 	expr        ast.Expr
 	private     bool
+	enumValues  []string
 	methods     []*ast.FuncDecl
 	xsdType     xsd.Type
 	helperTypes []xml.Name
 	helperFuncs []string
+	constants   *ast.DeclStmt
 }
 
 // Simplifies complex types derived from other complex types by merging
@@ -323,7 +329,7 @@ func (cfg *Config) expandComplexTypes(types []xsd.Type) []xsd.Type {
 			shadowedAttributes[attr.Name] = struct{}{}
 		}
 
-		elements := []xsd.Element{}
+		elements := []*xsd.Element{}
 		for _, el := range b.Elements {
 			if _, ok := shadowedElements[el.Name]; !ok {
 				elements = append(elements, el)
@@ -402,6 +408,54 @@ func dedup(types []xsd.Type) (unique []xsd.Type) {
 	return unique
 }
 
+// for now, bustUnion only resolves simple cases like a union of a builtin and an enum of the same builtin, e.g. in
+// this case redundantUnionType will be replaced with enumType
+//
+//    <xs:simpleType name="enumType">
+//        <xs:restriction base="xs:string">
+//            <xs:enumeration value="A"/>
+//            <xs:enumeration value="B"/>
+//        </xs:restriction>
+//    </xs:simpleType>
+//
+//    <xs:simpleType name="redundantUnionType">
+//        <xs:union memberTypes="enumType xs:string"/>
+//    </xs:simpleType>
+func (cfg *Config) bustUnion(t *xsd.SimpleType) xsd.Type {
+	var underlying xsd.Type
+	var actual xsd.Type
+	for _, member := range t.Union {
+		switch ut := member.(type) {
+		case xsd.Builtin:
+			if underlying != nil && underlying != ut {
+				// can't simplify
+				return t
+			}
+			underlying = ut
+		case *xsd.SimpleType:
+			base := xsd.Base(ut)
+			if underlying != nil && underlying != ut {
+				// can't simplify
+				return t
+			}
+			if actual != nil && actual != ut {
+				// TODO: can we simplify this case?
+				return t
+			}
+			underlying = base
+			actual = ut
+		default:
+			// TODO: handle more union member types
+			return t
+		}
+	}
+
+	if actual != nil {
+		return actual
+	}
+	return underlying
+}
+
 func (cfg *Config) flatten1(t xsd.Type, push func(xsd.Type), depth int) xsd.Type {
 	const maxDepth = 1000
 	if depth > maxDepth {
@@ -414,7 +468,12 @@ func (cfg *Config) flatten1(t xsd.Type, push func(xsd.Type), depth int) xsd.Type
 			base, builtin xsd.Type
 			ok            bool
 		)
-		// TODO: handle list/union types
+		// TODO: handle list types
+
+		if len(t.Union) > 0 {
+			return cfg.bustUnion(t)
+		}
+
 		for base = xsd.Base(t); base != nil; base = xsd.Base(base) {
 			if builtin, ok = base.(xsd.Builtin); ok {
 				break
@@ -876,10 +935,11 @@ func (cfg *Config) genSimpleType(t *xsd.SimpleType) ([]spec, error) {
 		// the value would be too complex. Need a use case
 		// first.
 		result = append(result, spec{
-			doc:     t.Doc,
-			name:    cfg.public(t.Name),
-			expr:    builtinExpr(xsd.String),
-			xsdType: t,
+			doc:        t.Doc,
+			name:       cfg.public(t.Name),
+			expr:       builtinExpr(xsd.String),
+			enumValues: t.Restriction.Enum,
+			xsdType:    t,
 		})
 		return result, nil
 	}
@@ -898,6 +958,7 @@ func (cfg *Config) genSimpleType(t *xsd.SimpleType) ([]spec, error) {
 	if err != nil {
 		return result, err
 	}
+	spec = cfg.addSpecConstants(t, spec)
 	return append(result, spec), nil
 }
 
@@ -930,6 +991,36 @@ func (cfg *Config) addSpecMethods(s spec) (spec, error) {
 		MustDecl())
 
 	return s, nil
+}
+
+// add constants to enumerations
+func (cfg *Config) addSpecConstants(t *xsd.SimpleType, s spec) spec {
+	if len(t.Restriction.Enum) == 0 || nonTrivialBuiltin(t.Base) {
+		return s
+	}
+
+	var params []string
+	validChars := regexp.MustCompile("[^a-zA-Z0-9_]")
+	for _, option := range t.Restriction.Enum {
+		// create a const import with a sanitized identifier in the format {{.Type}}_{{.Value}} {{.Type}} = {{.Value}}
+		params = append(params, cfg.public(t.Name)+"_"+validChars.ReplaceAllString(option, "_"), cfg.public(t.Name), option)
+	}
+
+	s.constants = &ast.DeclStmt{}
+
+	switch t.Base.(xsd.Builtin) {
+	case xsd.Integer, xsd.NegativeInteger, xsd.PositiveInteger, xsd.NonNegativeInteger, xsd.NonPositiveInteger, xsd.Int, xsd.UnsignedInt, xsd.Long, xsd.UnsignedLong, xsd.Short, xsd.UnsignedShort:
+		s.constants.Decl = gen.ConstInt(params...)
+	case xsd.Float, xsd.Decimal, xsd.Double:
+		s.constants.Decl = gen.ConstFloat(params...)
+	case xsd.String:
+		s.constants.Decl = gen.ConstString(params...)
+	default:
+		cfg.logf("[WARNING] skipping const value generation for unknown enumerated type %s", t.Base)
+		s.constants = nil
+	}
+
+	return s
 }
 
 // Generate a type declaration for a <list> type, along with marshal/unmarshal
