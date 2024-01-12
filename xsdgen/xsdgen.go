@@ -685,7 +685,7 @@ func (gen *nameGenerator) unique(name string) ast.Expr {
 }
 
 func (gen *nameGenerator) attribute(base xml.Name) ast.Expr {
-	name := gen.cfg.public(base)
+	name := gen.cfg.fieldName(base)
 	if _, ok := gen.taken[name]; !ok {
 		gen.taken[name] = struct{}{}
 		return ast.NewIdent(name)
