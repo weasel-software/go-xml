@@ -173,20 +173,50 @@ func (cfg *Config) gen(primaries, deps []xsd.Schema) (*Code, error) {
 		}
 	}
 
+	var allTypes []xsd.Type
 	for _, primary := range primaries {
 		cfg.debugf("flattening type hierarchy for schema %q", primary.TargetNS)
 		types := cfg.flatten(primary.Types)
 		types = cfg.expandComplexTypes(types)
-		for _, t := range types {
-			specs, err := cfg.genTypeSpec(t)
-			if err != nil {
-				errList = append(errList, fmt.Errorf("gen type %q: %v",
-					xsd.XMLName(t).Local, err))
-			} else {
-				for _, s := range specs {
-					code.names[xsd.XMLName(s.xsdType)] = s.name
-					code.decls[s.name] = s
-				}
+		allTypes = append(allTypes, types...)
+	}
+
+	takenNames := make(map[string]xml.Name)
+	cfg.typeNameOverrides = make(map[xml.Name]string)
+	// first pass to deduplicate type names
+	for _, t := range allTypes {
+		var xmlName xml.Name
+		switch t := t.(type) {
+		case *xsd.SimpleType:
+			xmlName = t.Name
+		case *xsd.ComplexType:
+			xmlName = t.Name
+		default:
+			continue
+		}
+		name := cfg.public(xmlName)
+
+		if existing, taken := takenNames[name]; taken && existing != xmlName {
+			var suffix int
+			for taken {
+				suffix++
+				_, taken = takenNames[name+strconv.Itoa(suffix)]
+			}
+			name += strconv.Itoa(suffix)
+			cfg.typeNameOverrides[xmlName] = name
+		}
+		takenNames[name] = xmlName
+	}
+
+	for _, t := range allTypes {
+		specs, err := cfg.genTypeSpec(t)
+		if err != nil {
+			errList = append(errList, fmt.Errorf("gen type %q: %v",
+				xsd.XMLName(t).Local, err))
+		} else {
+			for _, s := range specs {
+				code.names[xsd.XMLName(s.xsdType)] = s.name
+				code.decls[s.name] = s
 			}
 		}
 	}
@@ -640,7 +670,7 @@ func (gen *nameGenerator) attribute(base xml.Name) ast.Expr {
 }
 
 func (gen *nameGenerator) element(base xml.Name) ast.Expr {
-	name := gen.cfg.public(base)
+	name := gen.cfg.fieldName(base)
 	if _, ok := gen.taken[name]; !ok {
 		gen.taken[name] = struct{}{}
 		return ast.NewIdent(name)
