@@ -181,7 +181,7 @@ func (cfg *Config) gen(primaries, deps []xsd.Schema) (*Code, error) {
 		allTypes = append(allTypes, types...)
 	}
 
-	takenNames := make(map[string]xml.Name)
+	takenNames := make(map[string]xsd.Type)
 	cfg.typeNameOverrides = make(map[xml.Name]string)
 	// first pass to deduplicate type names
 	for _, t := range allTypes {
@@ -195,17 +195,25 @@ func (cfg *Config) gen(primaries, deps []xsd.Schema) (*Code, error) {
 			continue
 		}
 		name := cfg.public(xmlName)
-
-		if existing, taken := takenNames[name]; taken && existing != xmlName {
-			var suffix int
-			for taken {
-				suffix++
-				_, taken = takenNames[name+strconv.Itoa(suffix)]
+		if existing, taken := takenNames[name]; taken {
+			var existingName xml.Name
+			switch existing := existing.(type) {
+			case *xsd.SimpleType:
+				existingName = existing.Name
+			case *xsd.ComplexType:
+				existingName = existing.Name
 			}
-			name += strconv.Itoa(suffix)
-			cfg.typeNameOverrides[xmlName] = name
+			if existingName != xmlName && !xsd.TypesEqual(t, existing) {
+				var suffix int
+				for taken {
+					suffix++
+					_, taken = takenNames[name+strconv.Itoa(suffix)]
+				}
+				name += strconv.Itoa(suffix)
+				cfg.typeNameOverrides[xmlName] = name
+			}
 		}
-		takenNames[name] = xmlName
+		takenNames[name] = t
 	}
 
 	for _, t := range allTypes {
@@ -530,26 +538,42 @@ func (cfg *Config) flatten1(t xsd.Type, push func(xsd.Type), depth int) xsd.Type
 		// is useful enough for its own Go type. Our threshold for "useful enough"
 		// is pretty low; if we can attach a godoc comment to it describing how it
 		// should be used, that's good enough.
+		var useT bool
 		if t.List || len(t.Union) > 0 {
-			return t
+			useT = true
 		}
 		if nonTrivialBuiltin(t.Base) {
-			return t
+			useT = true
 		}
 		if len(t.Restriction.Enum) > 0 {
-			t.Doc = "May be one of " + strings.Join(t.Restriction.Enum, ", ")
-			return t
+			doc := "May be one of " + strings.Join(t.Restriction.Enum, ", ")
+			if !strings.Contains(t.Doc, doc) {
+				t.Doc += "\n" + doc
+			}
+			useT = true
 		}
 		if t.Restriction.Pattern != nil {
-			t.Doc = "Must match the pattern " + t.Restriction.Pattern.String()
-			return t
+			doc := "Must match the pattern " + t.Restriction.Pattern.String()
+			if !strings.Contains(t.Doc, doc) {
+				t.Doc += "\n" + doc
+			}
+			useT = true
 		}
 		if t.Restriction.MaxLength != 0 {
-			t.Doc = "May be no more than " + strconv.Itoa(t.Restriction.MaxLength) + " items long"
-			return t
+			doc := "May be no more than " + strconv.Itoa(t.Restriction.MaxLength) + " items long"
+			if !strings.Contains(t.Doc, doc) {
+				t.Doc += "\n" + doc
+			}
+			useT = true
 		}
 		if t.Restriction.MinLength != 0 {
-			t.Doc = "Must be at least " + strconv.Itoa(t.Restriction.MinLength) + " items long"
+			doc := "Must be at least " + strconv.Itoa(t.Restriction.MinLength) + " items long"
+			if !strings.Contains(t.Doc, doc) {
+				t.Doc += "\n" + doc
+			}
+			useT = true
+		}
+		if useT {
 			return t
 		}
 		return t.Base
