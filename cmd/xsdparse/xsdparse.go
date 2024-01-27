@@ -1,4 +1,4 @@
-package main // import "github.com/SoMuchForSubtlety/go-xml/cmd/xsdparse"
+package main // import "github.com/weasel-software/go-xml/cmd/xsdparse"
 
 import (
 	"flag"
@@ -7,8 +7,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/SoMuchForSubtlety/go-xml/xmltree"
-	"github.com/SoMuchForSubtlety/go-xml/xsd"
+	"github.com/weasel-software/go-xml/xmltree"
+	"github.com/weasel-software/go-xml/xsd"
 )
 
 var (

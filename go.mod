@@ -1,4 +1,4 @@
-module github.com/SoMuchForSubtlety/go-xml
+module github.com/weasel-software/go-xml
 
 go 1.15
 

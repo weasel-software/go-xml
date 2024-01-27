@@ -1,11 +1,11 @@
-[![GoDoc](https://godoc.org/github.com/SoMuchForSubtlety/go-xml?status.svg)](https://godoc.org/github.com/SoMuchForSubtlety/go-xml) [![Build Status](https://travis-ci.org/droyo/go-xml.svg?branch=master)](https://travis-ci.org/droyo/go-xml)
+[![GoDoc](https://godoc.org/github.com/weasel-software/go-xml?status.svg)](https://godoc.org/github.com/weasel-software/go-xml) [![Build Status](https://travis-ci.org/droyo/go-xml.svg?branch=master)](https://travis-ci.org/droyo/go-xml)
 
 ## Installation
 
 Requires go 1.9 or greater for golang.org/x/html dependency.
 
 ```
-go get github.com/SoMuchForSubtlety/go-xml/...
+go get github.com/weasel-software/go-xml/...
 ```
 
 This repository contains a collection of Go packages for working

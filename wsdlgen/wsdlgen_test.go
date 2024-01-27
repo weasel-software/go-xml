@@ -6,7 +6,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/SoMuchForSubtlety/go-xml/xsdgen"
+	"github.com/weasel-software/go-xml/xsdgen"
 )
 
 type testLogger struct {

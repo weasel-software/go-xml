@@ -7,7 +7,7 @@
 //
 // Code generation for the wsdlgen package can be configured by using
 // the provided Option functions.
-package wsdlgen // import "github.com/SoMuchForSubtlety/go-xml/wsdlgen"
+package wsdlgen // import "github.com/weasel-software/go-xml/wsdlgen"
 
 import (
 	"encoding/xml"
@@ -17,10 +17,10 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/SoMuchForSubtlety/go-xml/internal/gen"
-	"github.com/SoMuchForSubtlety/go-xml/wsdl"
-	"github.com/SoMuchForSubtlety/go-xml/xsd"
-	"github.com/SoMuchForSubtlety/go-xml/xsdgen"
+	"github.com/weasel-software/go-xml/internal/gen"
+	"github.com/weasel-software/go-xml/wsdl"
+	"github.com/weasel-software/go-xml/xsd"
+	"github.com/weasel-software/go-xml/xsdgen"
 )
 
 // Types conforming to the Logger interface can receive information about

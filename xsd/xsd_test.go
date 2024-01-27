@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/SoMuchForSubtlety/go-xml/xmltree"
+	"github.com/weasel-software/go-xml/xmltree"
 )
 
 type blob map[string]interface{}

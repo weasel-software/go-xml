@@ -8,9 +8,9 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/SoMuchForSubtlety/go-xml/internal/commandline"
-	"github.com/SoMuchForSubtlety/go-xml/internal/gen"
-	"github.com/SoMuchForSubtlety/go-xml/xsd"
+	"github.com/weasel-software/go-xml/internal/commandline"
+	"github.com/weasel-software/go-xml/internal/gen"
+	"github.com/weasel-software/go-xml/xsd"
 )
 
 // GenCode reads all xml schema definitions from the provided

@@ -1,8 +1,8 @@
 package wsdlgen
 
 import (
-	"github.com/SoMuchForSubtlety/go-xml/wsdl"
-	"github.com/SoMuchForSubtlety/go-xml/xsdgen"
+	"github.com/weasel-software/go-xml/wsdl"
+	"github.com/weasel-software/go-xml/xsdgen"
 )
 
 // A Config contains parameters for the various code generation processes.

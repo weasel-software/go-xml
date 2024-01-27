@@ -7,9 +7,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/SoMuchForSubtlety/go-xml/internal/commandline"
-	"github.com/SoMuchForSubtlety/go-xml/internal/gen"
-	"github.com/SoMuchForSubtlety/go-xml/xsdgen"
+	"github.com/weasel-software/go-xml/internal/commandline"
+	"github.com/weasel-software/go-xml/internal/gen"
+	"github.com/weasel-software/go-xml/xsdgen"
 )
 
 // The GenSource method converts the AST returned by GenAST to formatted

@@ -1,6 +1,6 @@
 package wsdlgen
 
-import "github.com/SoMuchForSubtlety/go-xml/internal/gen"
+import "github.com/weasel-software/go-xml/internal/gen"
 
 // One of the goals of this package is that generated code
 // has no external dependencies, only the Go standard

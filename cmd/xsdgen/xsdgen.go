@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/SoMuchForSubtlety/go-xml/xsdgen"
+	"github.com/weasel-software/go-xml/xsdgen"
 )
 
 func main() {
