@@ -1,4 +1,4 @@
-[![GoDoc](https://godoc.org/github.com/weasel-software/go-xml?status.svg)](https://godoc.org/github.com/weasel-software/go-xml) [![Build Status](https://travis-ci.org/droyo/go-xml.svg?branch=master)](https://travis-ci.org/droyo/go-xml)
+[![GoDoc](https://godoc.org/github.com/weasel-software/go-xml?status.svg)](https://godoc.org/github.com/weasel-software/go-xml)
 
 ## Installation
 
